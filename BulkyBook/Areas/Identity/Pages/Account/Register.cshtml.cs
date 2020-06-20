@@ -42,8 +42,8 @@ namespace BulkyBook.Areas.Identity.Pages.Account
             _signInManager = signInManager;
             _logger = logger;
             _emailSender = emailSender;
-            _unitOfWork = unitOfWork;
             _roleManager = roleManager;
+            _unitOfWork = unitOfWork;
         }
 
         [BindProperty]
@@ -78,12 +78,12 @@ namespace BulkyBook.Areas.Identity.Pages.Account
             public string State { get; set; }
             public string PostalCode { get; set; }
             public string PhoneNumber { get; set; }
-
+            public int? CompanyId { get; set; }
             public string Role { get; set; }
+
             public IEnumerable<SelectListItem> CompanyList { get; set; }
             public IEnumerable<SelectListItem> RoleList { get; set; }
 
-            public int? CompanyId { get; set; }
         }
 
         public async Task OnGetAsync(string returnUrl = null)
@@ -92,13 +92,11 @@ namespace BulkyBook.Areas.Identity.Pages.Account
 
             Input = new InputModel()
             {
-                //create a dropdown with all company names
                 CompanyList = _unitOfWork.Company.GetAll().Select(i => new SelectListItem
                 {
                     Text = i.Name,
                     Value = i.Id.ToString()
                 }),
-                //create a dropdown with roles that don't include User_Individual
                 RoleList = _roleManager.Roles.Where(u => u.Name != SD.Role_User_Indi).Select(x => x.Name).Select(i => new SelectListItem
                 {
                     Text = i,
@@ -115,8 +113,6 @@ namespace BulkyBook.Areas.Identity.Pages.Account
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
             if (ModelState.IsValid)
             {
-                // var user = new IdentityUser { UserName = Input.Email, Email = Input.Email };
-
                 var user = new ApplicationUser
                 {
                     UserName = Input.Email,
@@ -130,13 +126,11 @@ namespace BulkyBook.Areas.Identity.Pages.Account
                     PhoneNumber = Input.PhoneNumber,
                     Role = Input.Role
                 };
-
                 var result = await _userManager.CreateAsync(user, Input.Password);
                 if (result.Succeeded)
                 {
                     _logger.LogInformation("User created a new account with password.");
 
-                    //create roles if they don't exist
                     if (!await _roleManager.RoleExistsAsync(SD.Role_Admin))
                     {
                         await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
@@ -153,12 +147,8 @@ namespace BulkyBook.Areas.Identity.Pages.Account
                     {
                         await _roleManager.CreateAsync(new IdentityRole(SD.Role_User_Indi));
                     }
-                   
-                    //If role not selected - Individual User role
-                    //If role and in a company - User Company role
-                    //If role and not in a company - whatever role was selected
-                    
-                   if (user.Role == null)
+
+                    if (user.Role == null)
                     {
                         await _userManager.AddToRoleAsync(user, SD.Role_User_Indi);
                     }
@@ -168,17 +158,15 @@ namespace BulkyBook.Areas.Identity.Pages.Account
                         {
                             await _userManager.AddToRoleAsync(user, SD.Role_User_Comp);
                         }
-                        else
-                        {
-                            await _userManager.AddToRoleAsync(user, user.Role);
-                        }
+                        await _userManager.AddToRoleAsync(user, user.Role);
                     }
+
                     //var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
                     //code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
                     //var callbackUrl = Url.Page(
                     //    "/Account/ConfirmEmail",
                     //    pageHandler: null,
-                    //    values: new { area = "Identity", userId = user.Id, code = code, returnUrl = returnUrl },
+                    //    values: new { area = "Identity", userId = user.Id, code = code },
                     //    protocol: Request.Scheme);
 
                     //await _emailSender.SendEmailAsync(Input.Email, "Confirm your email",
@@ -186,7 +174,7 @@ namespace BulkyBook.Areas.Identity.Pages.Account
 
                     if (_userManager.Options.SignIn.RequireConfirmedAccount)
                     {
-                        return RedirectToPage("RegisterConfirmation", new { email = Input.Email, returnUrl = returnUrl });
+                        return RedirectToPage("RegisterConfirmation", new { email = Input.Email });
                     }
                     else
                     {
@@ -197,9 +185,8 @@ namespace BulkyBook.Areas.Identity.Pages.Account
                         }
                         else
                         {
-                            //admin is adding a new user - keep admin signed in
-                            //return RedirectToAction("Index", "User", new { Area = "Admin" });
-
+                            //admin is registering a new user
+                            return RedirectToAction("Index", "User", new { Area = "Admin" });
                         }
                     }
                 }
