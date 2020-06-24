@@ -16,6 +16,5 @@ namespace BulkyBook.DataAccess.Repository
         {
             _db = db;
         }
-
     }
 }
